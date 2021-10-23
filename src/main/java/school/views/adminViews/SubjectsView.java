@@ -1,15 +1,11 @@
-package school.views.subjects;
-
-import java.util.Optional;
-
-import school.data.entity.Subject;
-import school.data.service.SubjectService;
+package school.views.adminViews;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -17,47 +13,58 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.data.binder.ValidationException;
+import com.vaadin.flow.data.converter.StringToIntegerConverter;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
+import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.PageTitle;
-import school.views.MainLayout;
-import com.vaadin.flow.data.converter.StringToIntegerConverter;
-import com.vaadin.flow.component.textfield.TextField;
+import school.data.models.entity.Subject;
+import school.data.models.entity.Teacher;
+import school.data.service.SubjectService;
+import school.data.service.TeacherService;
+import school.views.basicViewForms.MainLayout;
+
+import javax.annotation.security.RolesAllowed;
+import java.util.Optional;
 
 @PageTitle("Subjects")
 @Route(value = "subject/:subjectID?/:action?(edit)", layout = MainLayout.class)
+@RolesAllowed("admin")
 public class SubjectsView extends Div implements BeforeEnterObserver {
 
     private final String SUBJECT_ID = "subjectID";
     private final String SUBJECT_EDIT_ROUTE_TEMPLATE = "subject/%d/edit";
 
-    private Grid<Subject> grid = new Grid<>(Subject.class, false);
+    private final Grid<Subject> grid = new Grid<>(Subject.class, false);
 
-    private TextField id;
-    private TextField name;
-    private TextField teacherName;
+    private final TextField id = new TextField("Id");
+    private final TextField subjectName = new TextField("Subject Name");
 
-    private Button cancel = new Button("Cancel");
-    private Button save = new Button("Save");
+    private final ComboBox<Teacher> teacher = new ComboBox<>("Teacher");
 
-    private BeanValidationBinder<Subject> binder;
+    private final Button cancel = new Button("Cancel");
+    private final Button save = new Button("Save");
+    private final Button delete = new Button("Delete");
+
+    private final BeanValidationBinder<Subject> binder;
+    private final Div editorLayoutDiv = new Div();
 
     private Subject subject;
 
-    private SubjectService subjectService;
+    private final SubjectService subjectService;
+    private final TeacherService teacherService;
 
-    public SubjectsView(@Autowired SubjectService subjectService) {
+    public SubjectsView(@Autowired SubjectService subjectService, @Autowired TeacherService teacherService) {
         this.subjectService = subjectService;
+        this.teacherService = teacherService;
         addClassNames("subjects-view", "flex", "flex-col", "h-full");
 
-        // Create UI
         SplitLayout splitLayout = new SplitLayout();
         splitLayout.setSizeFull();
 
@@ -66,19 +73,18 @@ public class SubjectsView extends Div implements BeforeEnterObserver {
 
         add(splitLayout);
 
-        // Configure Grid
         grid.addColumn("id").setAutoWidth(true);
-        grid.addColumn("name").setAutoWidth(true);
-        grid.addColumn("teacherName").setAutoWidth(true);
-        grid.setItems(query -> subjectService.list(
-                PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query)))
-                .stream());
+        grid.addColumn("subjectName").setAutoWidth(true);
+        grid.addColumn("teacher").setAutoWidth(true);
+
+        grid.setItems(query -> subjectService.list(PageRequest.of(query.getPage(), query.getPageSize(),
+                VaadinSpringDataHelpers.toSpringDataSort(query))).stream());
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
         grid.setHeightFull();
 
-        // when a row is selected or deselected, populate form
         grid.asSingleSelect().addValueChangeListener(event -> {
             if (event.getValue() != null) {
+                id.setVisible(true);
                 UI.getCurrent().navigate(String.format(SUBJECT_EDIT_ROUTE_TEMPLATE, event.getValue().getId()));
             } else {
                 clearForm();
@@ -86,18 +92,30 @@ public class SubjectsView extends Div implements BeforeEnterObserver {
             }
         });
 
-        // Configure Form
         binder = new BeanValidationBinder<>(Subject.class);
 
-        // Bind fields. This where you'd define e.g. validation rules
         binder.forField(id).withConverter(new StringToIntegerConverter("Only numbers are allowed")).bind("id");
 
         binder.bindInstanceFields(this);
 
-        cancel.addClickListener(e -> {
-            clearForm();
-            refreshGrid();
+        delete.addClickListener(e -> {
+            if (this.subject == null) {
+                this.subject = new Subject();
+            }
+            try {
+                binder.writeBean(this.subject);
+                if (this.subject.getId() == null) {
+                    Notification.show("The subject must have an ID");
+                } else {
+                    subjectService.delete(this.subject.getId());
+                    afterEditAction("The subject " + subject.getSubjectName() + " deleted.");
+                }
+            } catch (ValidationException ex) {
+                Notification.show("An exception happened while trying to delete the subject details.");
+            }
         });
+
+        cancel.addClickListener(e -> afterEditAction("Subject details store canceled."));
 
         save.addClickListener(e -> {
             try {
@@ -106,16 +124,21 @@ public class SubjectsView extends Div implements BeforeEnterObserver {
                 }
                 binder.writeBean(this.subject);
 
-                subjectService.update(this.subject);
-                clearForm();
-                refreshGrid();
-                Notification.show("Subject details stored.");
-                UI.getCurrent().navigate(SubjectsView.class);
+                subjectService.save(this.subject);
+                afterEditAction("Subject details stored.");
             } catch (ValidationException validationException) {
                 Notification.show("An exception happened while trying to store the subject details.");
             }
         });
 
+    }
+
+    private void afterEditAction(String notification) {
+        id.setVisible(false);
+        clearForm();
+        refreshGrid();
+        Notification.show(notification);
+        UI.getCurrent().navigate(SubjectsView.class);
     }
 
     @Override
@@ -128,8 +151,6 @@ public class SubjectsView extends Div implements BeforeEnterObserver {
             } else {
                 Notification.show(String.format("The requested subject was not found, ID = %d", subjectId.get()), 3000,
                         Notification.Position.BOTTOM_START);
-                // when a row is selected but the data is no longer available,
-                // refresh grid
                 refreshGrid();
                 event.forwardTo(SubjectsView.class);
             }
@@ -137,28 +158,30 @@ public class SubjectsView extends Div implements BeforeEnterObserver {
     }
 
     private void createEditorLayout(SplitLayout splitLayout) {
-        Div editorLayoutDiv = new Div();
         editorLayoutDiv.setClassName("flex flex-col");
-        editorLayoutDiv.setWidth("400px");
+        editorLayoutDiv.setWidth("500px");
 
         Div editorDiv = new Div();
         editorDiv.setClassName("p-l flex-grow");
         editorLayoutDiv.add(editorDiv);
+        editorDiv.add(createFormLayout());
 
+        createButtonLayout(editorLayoutDiv);
+        splitLayout.addToSecondary(editorLayoutDiv);
+    }
+
+    private FormLayout createFormLayout() {
         FormLayout formLayout = new FormLayout();
-        id = new TextField("Id");
-        name = new TextField("Name");
-        teacherName = new TextField("Teacher Name");
-        Component[] fields = new Component[]{id, name, teacherName};
+        id.setVisible(false);
+        teacher.setPlaceholder("choose a teacher");
+        teacher.setItems(teacherService.findAll());
+        Component[] fields = new Component[]{id, subjectName, teacher};
 
         for (Component field : fields) {
             ((HasStyle) field).addClassName("full-width");
         }
         formLayout.add(fields);
-        editorDiv.add(formLayout);
-        createButtonLayout(editorLayoutDiv);
-
-        splitLayout.addToSecondary(editorLayoutDiv);
+        return formLayout;
     }
 
     private void createButtonLayout(Div editorLayoutDiv) {
@@ -167,7 +190,8 @@ public class SubjectsView extends Div implements BeforeEnterObserver {
         buttonLayout.setSpacing(true);
         cancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        buttonLayout.add(save, cancel);
+        delete.addThemeVariants(ButtonVariant.LUMO_ERROR);
+        buttonLayout.add(save, cancel, delete);
         editorLayoutDiv.add(buttonLayout);
     }
 
@@ -191,6 +215,5 @@ public class SubjectsView extends Div implements BeforeEnterObserver {
     private void populateForm(Subject value) {
         this.subject = value;
         binder.readBean(this.subject);
-
     }
 }

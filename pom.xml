@@ -3,6 +3,7 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <!-- Vaadin project from https://start.vaadin.com/project/e87930c9-dced-45bb-aa23-b697c956d0a1 -->
+
     <groupId>school</groupId>
     <artifactId>class-jornal</artifactId>
     <name>Project base for Spring Boot and Vaadin Flow</name>
@@ -32,7 +33,7 @@
             </snapshots>
         </repository>
         <repository>
-            <id>vaadin-prereleases</id>
+            <id>vaadin-prerelease</id>
             <url>
                 https://maven.vaadin.com/vaadin-prereleases/
             </url>
@@ -57,7 +58,7 @@
             </snapshots>
         </pluginRepository>
         <pluginRepository>
-            <id>vaadin-prereleases</id>
+            <id>vaadin-prerelease</id>
             <url>
                 https://maven.vaadin.com/vaadin-prereleases/
             </url>
@@ -99,8 +100,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -144,6 +146,19 @@
             <artifactId>webdrivermanager</artifactId>
             <version>4.4.0</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-tomcat</artifactId>
+            <version>2.5.4</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
     </dependencies>
 

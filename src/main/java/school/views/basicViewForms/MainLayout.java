@@ -1,38 +1,33 @@
-package school.views;
+package school.views.basicViewForms;
+
+import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.applayout.AppLayout;
+import com.vaadin.flow.component.applayout.DrawerToggle;
+import com.vaadin.flow.component.avatar.Avatar;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.html.*;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.RouteConfiguration;
+import com.vaadin.flow.router.RouterLink;
+import com.vaadin.flow.server.auth.AccessAnnotationChecker;
+import school.data.models.AbstractUser;
+import school.security.AuthenticatedUser;
+import school.views.studentsViews.StudentMarksView;
+import school.views.studentsViews.StudentTeachersView;
+import school.views.studentsViews.StudentsView;
+import school.views.teacherViews.TeacherMarksView;
+import school.views.adminViews.AcademicYearView;
+import school.views.adminViews.AdminStudentsView;
+import school.views.adminViews.SubjectsView;
+import school.views.adminViews.TeachersView;
+import school.views.loginAndRegViews.RegistrationFormView;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.ComponentUtil;
-import com.vaadin.flow.component.Text;
-import com.vaadin.flow.component.applayout.AppLayout;
-import com.vaadin.flow.component.applayout.DrawerToggle;
-import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.html.Image;
-import com.vaadin.flow.component.html.Nav;
-import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.html.Footer;
-import com.vaadin.flow.component.html.H1;
-import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.H3;
-import com.vaadin.flow.component.html.Header;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.tabs.Tab;
-import com.vaadin.flow.component.tabs.Tabs;
-import com.vaadin.flow.component.tabs.TabsVariant;
-import com.vaadin.flow.router.RouterLink;
-import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.PageTitle;
-import school.views.MainLayout;
-import school.views.user.UserView;
-import school.views.marks.MarksView;
-import school.views.subjects.SubjectsView;
-import school.views.teachers.TeachersView;
-import com.vaadin.flow.component.avatar.Avatar;
 
 /**
  * The main view is a top-level placeholder for other views.
@@ -42,9 +37,9 @@ public class MainLayout extends AppLayout {
 
     public static class MenuItemInfo {
 
-        private String text;
-        private String iconClass;
-        private Class<? extends Component> view;
+        private final String text;
+        private final String iconClass;
+        private final Class<? extends Component> view;
 
         public MenuItemInfo(String text, String iconClass, Class<? extends Component> view) {
             this.text = text;
@@ -68,7 +63,13 @@ public class MainLayout extends AppLayout {
 
     private H1 viewTitle;
 
-    public MainLayout() {
+    private final AuthenticatedUser authenticatedUser;
+    private final AccessAnnotationChecker accessChecker;
+
+    public MainLayout(AuthenticatedUser authenticatedUser, AccessAnnotationChecker accessChecker) {
+        this.authenticatedUser = authenticatedUser;
+        this.accessChecker = accessChecker;
+
         setPrimarySection(Section.DRAWER);
         addToNavbar(true, createHeaderContent());
         addToDrawer(createDrawerContent());
@@ -90,7 +91,7 @@ public class MainLayout extends AppLayout {
     }
 
     private Component createDrawerContent() {
-        H2 appName = new H2("Class-Jornal");
+        H2 appName = new H2("Class Journal");
         appName.addClassNames("flex", "items-center", "h-xl", "m-0", "px-m", "text-m");
 
         com.vaadin.flow.component.html.Section section = new com.vaadin.flow.component.html.Section(appName,
@@ -108,27 +109,40 @@ public class MainLayout extends AppLayout {
         views.addClassNames("flex", "h-m", "items-center", "mx-m", "my-0", "text-s", "text-tertiary");
         views.setId("views");
 
+        // Wrap the links in a list; improves accessibility
+        UnorderedList list = new UnorderedList();
+        list.addClassNames("list-none", "m-0", "p-0");
+        nav.add(list);
+
         for (RouterLink link : createLinks()) {
-            nav.add(link);
+            ListItem item = new ListItem(link);
+            list.add(item);
         }
         return nav;
     }
 
     private List<RouterLink> createLinks() {
         MenuItemInfo[] menuItems = new MenuItemInfo[]{ //
-                new MenuItemInfo("User", "la la-user", UserView.class), //
+                new MenuItemInfo("Main View", "la la-columns", MainView.class),
+                new MenuItemInfo("Academic Year", "la la-columns", AcademicYearView.class),
 
-                new MenuItemInfo("Marks", "la la-columns", MarksView.class), //
+                new MenuItemInfo("Marks", "la la-columns", StudentMarksView.class), //
+                new MenuItemInfo("Marks", "la la-columns", TeacherMarksView.class), //
+
+
+                new MenuItemInfo("Students(admin)", "la la-columns", AdminStudentsView.class), //
+                new MenuItemInfo("Students", "la la-columns", StudentsView.class), //
 
                 new MenuItemInfo("Subjects", "la la-columns", SubjectsView.class), //
 
                 new MenuItemInfo("Teachers", "la la-columns", TeachersView.class), //
-
+                new MenuItemInfo("Teachers", "la la-columns", StudentTeachersView.class) //
         };
         List<RouterLink> links = new ArrayList<>();
         for (MenuItemInfo menuItemInfo : menuItems) {
-            links.add(createLink(menuItemInfo));
-
+            if (accessChecker.hasAccess(menuItemInfo.getView())) {
+                links.add(createLink(menuItemInfo));
+            }
         }
         return links;
     }
@@ -152,8 +166,29 @@ public class MainLayout extends AppLayout {
     }
 
     private Footer createFooter() {
+
         Footer layout = new Footer();
+        layout.setHeightFull();
         layout.addClassNames("flex", "items-center", "my-s", "px-m", "py-xs");
+
+        Optional<? extends AbstractUser> maybeUser = authenticatedUser.get();
+        if (maybeUser.isPresent()) {
+            AbstractUser user = maybeUser.get();
+
+            Avatar avatar = new Avatar(user.getFullName());
+            avatar.addClassNames("me-xs");
+
+            ContextMenu userMenu = new ContextMenu(avatar);
+            userMenu.setOpenOnClick(true);
+            userMenu.addItem("Logout", e -> authenticatedUser.logout());
+
+            Span name = new Span(user.getFullName());
+            name.addClassNames("font-medium", "text-s", "text-secondary");
+
+            layout.add(avatar, name);
+        } else {
+            layout.add(createLogRegLinkLayout());
+        }
 
         return layout;
     }
@@ -167,5 +202,16 @@ public class MainLayout extends AppLayout {
     private String getCurrentPageTitle() {
         PageTitle title = getContent().getClass().getAnnotation(PageTitle.class);
         return title == null ? "" : title.value();
+    }
+
+    private Component createLogRegLinkLayout() {
+        HorizontalLayout linkLayout = new HorizontalLayout();
+        linkLayout.addClassName("link-layout");
+        linkLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        Anchor loginLink = new Anchor("login", "Sign in");
+        Anchor regLink = new Anchor(RouteConfiguration.forSessionScope().getUrl(RegistrationFormView.class), "Registration");
+        linkLayout.add(loginLink);
+        linkLayout.add(regLink);
+        return linkLayout;
     }
 }

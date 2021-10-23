@@ -18,8 +18,8 @@ import com.vaadin.flow.component.dependency.NpmPackage;
  *
  */
 @SpringBootApplication
-@Theme(value = "class-jornal")
-@PWA(name = "Class-Jornal", shortName = "Class-Jornal", offlineResources = {"images/logo.png"})
+@Theme(value = "class-journal")
+@PWA(name = "Class-Journal", shortName = "Class-Journal", offlineResources = {"images/logo.png"})
 @NpmPackage(value = "line-awesome", version = "1.3.0")
 public class Application extends SpringBootServletInitializer implements AppShellConfigurator {
 

@@ -1,18 +1,24 @@
-package school.data;
+package school.data.models;
+
+import com.vaadin.fusion.Nonnull;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
 import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.MappedSuperclass;
 
-import com.vaadin.fusion.Nonnull;
-
 @MappedSuperclass
+@AllArgsConstructor
+@NoArgsConstructor
 public abstract class AbstractEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Nonnull
     private Integer id;
+
 
     public Integer getId() {
         return id;
@@ -32,10 +38,9 @@ public abstract class AbstractEntity {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof AbstractEntity)) {
+        if (!(obj instanceof AbstractEntity other)) {
             return false; // null or other class
         }
-        AbstractEntity other = (AbstractEntity) obj;
 
         if (id != null) {
             return id.equals(other.id);
